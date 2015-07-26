@@ -1,13 +1,19 @@
 
 require "./embedded_rakefile.rb"
 
+# We are going to use a toolchain T1 with 2 configs C1, and C2
 toolchain "T1" => ["C1", "C2"]
+# We are going to use a toolchain Tx with 1 config Cx
 toolchain "Tx" => ["Cx"]
 
+
+# Now we define the info we need for building different types of outputs for each toolchain
 # The first letter is the extension of the source
 config "T1/C1", :CC         => "g++"
 config "T1/C1", :CFLAGS     => "-Isrc -Isrc/a -c"
-config "T1/C1", :CDEPS      => config("T1/C1", :CC) + " " + config("T1/C1", :CFLAGS) + " -M -MM -MF"
+
+# You can access the config dict in order to inherit values that are already defined
+config "T1/C1", :CDEPS      => "#{config("T1/C1", :CC)} #{config("T1/C1", :CFLAGS)} -M -MM -MF"
 
 
 config "T1/C1", :SC         => "as"
@@ -19,7 +25,7 @@ config "T1/C1", :LDFLAGS    => ""
 
 config "T1/C2", :CC         => "g++"
 config "T1/C2", :CFLAGS     => "-Isrc -Isrc/a -c"
-config "T1/C2", :CDEPS      => config("T1/C2", :CC) + " " + config("T1/C2", :CFLAGS) + " -M -MM -MF"
+config "T1/C2", :CDEPS      => "#{config("T1/C2", :CC)} #{config("T1/C2", :CFLAGS)} -M -MM -MF"
 
 config "T1/C2", :SC         => "g++"
 config "T1/C2", :SFLAGS     => "-Isrc -Isrc/a -c"
@@ -30,14 +36,19 @@ config "T1/C2", :LDFLAGS    => ""
 
 config "Tx/Cx", :CC         => "gcc"
 config "Tx/Cx", :CFLAGS     => "-Isrc -Isrc/a -DX86 -c"
-config "Tx/Cx", :CDEPS         => config("Tx/Cx", :CC) + " " + config("Tx/Cx", :CFLAGS) + " -M -MM -MF"
+config "Tx/Cx", :CDEPS      => "#{config("Tx/Cx", :CC)} #{config("Tx/Cx", :CFLAGS)} -M -MM -MF"
 config "Tx/Cx", :LD         => "gcc"
 config "Tx/Cx", :LDFLAGS    => " -DX86"
 
 
+# Now we create all the rules we need for the different output file types in our build
 
+# define_rules will generate rules that output .o object files
+# (and .d files for the dependencies)
 define_rules    "T1", "C1", ".c"
 define_rules    "T1", "C1", ".s"
+
+# define_ld_rules will generate rules that output .a archives or .elf binaries
 define_ld_rules "T1", "C1", ".o"
 
 define_rules    "T1", "C2", ".c"
@@ -45,6 +56,9 @@ define_rules    "T1", "C2", ".s"
 define_ld_rules "T1", "C2", ".o"
 
 define_rules    "Tx", "Cx", ".c"
+
+# define_exec will generate a rule that outputs .out log files resulting from 
+# the execution of the .elf file
 define_exec     "Tx", "Cx", ".elf"
 define_ld_rules "Tx", "Cx", ".o"
 
@@ -56,25 +70,43 @@ define_ld_rules "Tx", "Cx", ".o"
 #    sh "g++ -c -o" + "#{target.name} #{target.source}"
 #end
 
-# Override a file rule
-file 'bin/obj/T1/C2/lul.o' => ['src/lul.s'] + toolchain_dep("T1","C2").call('bin/obj/T1/C2/lul.o')   do |target|
+# You can override a file rule, call rake t1 in order to see this in effect
+file 'bin/obj/T1/C2/lul.o' => ( ['src/lul.s'] +
+                                toolchain_dep("T1","C2").call('bin/obj/T1/C2/lul.o') ) do |target|
     action_msg         "T1", "C2", target, "SCSPECIAL"
     action_prepare     "T1", "C2", target
     sh "g++ -c -o" + "#{target.name} #{target.source}"
 end
 
 # Specify which files to use in the resulting elf
-file 'bin/out/T1/C1/project.elf' => (['lol.o', 'a/b.o', 'a/a.o', 'lul.o'].map { |x| 'bin/obj/T1/C1/' + x })
+file 'bin/out/T1/C1/project.elf' => ( ['lol.o', 'a/b.o', 'a/a.o', 'lul.o'].
+                                      map { |x| 'bin/obj/T1/C1/' + x } )
 
+# This process is also made more compact with the file_config statement
 file_config "T1/C1", "project.elf" => ['lol.o', 'a/b.o', 'a/a.o', 'lul.o']
 file_config "T1/C2", "project.elf" => ['lol.o', 'a/b.o', 'a/a.o', 'lul.o']
 file_config "Tx/Cx", "lol.elf" => ['lol.o']
 
+
+
+# And now we define the set of tasks we want to make available from the command line
+
+# This task will show building the project with the T1/C2 config, 
+# which happes to be defined with an override ("SCSPECIAL")
 task :t1 => [ 'bin/out/T1/C2/project.elf'  ]
-task :final => [ 'bin/out/T1/C1/project.elf', 'bin/out/T1/C2/project.elf'  ]
 
+# Now we do the same for T1/C1, but also want t1 to be built
+task :final => [ 'bin/out/T1/C1/project.elf', :t1  ]
 
+# Build and execute the Tx/Cx tests. Of course, you can add rules to do parsing over your 
+# generated output
 task :test => [ 'bin/out/Tx/Cx/lol.out' ]
 
-task :default => [ 'bin/out/Tx/Cx/lol.out']
+task :default => [ :test, :final ]
+
+# As final notes: 
+# - The rakefile is also taked as a dependency, which means that changing it, will rebuild 
+#   everything
+# - The clean task is automatically defined, and deletes each bin/{out,obj} directory for 
+#   the currently defined toolchain/config
 
