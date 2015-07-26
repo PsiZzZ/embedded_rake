@@ -5,62 +5,62 @@ toolchain "T1" => ["C1", "C2"]
 toolchain "Tx" => ["Cx"]
 
 # The first letter is the extension of the source
-config "T1/C1", :CC 		=> "g++"
-config "T1/C1", :CFLAGS 	=> "-Isrc -Isrc/a -c"
-config "T1/C1", :CDEPS 		=> config("T1/C1", :CC) + " " + config("T1/C1", :CFLAGS) + " -M -MM -MF"
+config "T1/C1", :CC         => "g++"
+config "T1/C1", :CFLAGS     => "-Isrc -Isrc/a -c"
+config "T1/C1", :CDEPS      => config("T1/C1", :CC) + " " + config("T1/C1", :CFLAGS) + " -M -MM -MF"
 
 
-config "T1/C1", :SC			=> "as"
-config "T1/C1", :SFLAGS		=> "-Isrc -Isrc/a -c"
+config "T1/C1", :SC         => "as"
+config "T1/C1", :SFLAGS     => "-Isrc -Isrc/a -c"
 
-config "T1/C1", :LD 		=> "g++"
-config "T1/C1", :LDFLAGS 	=> ""
-
-
-config "T1/C2", :CC 		=> "g++"
-config "T1/C2", :CFLAGS 	=> "-Isrc -Isrc/a -c"
-config "T1/C2", :CDEPS 		=> config("T1/C2", :CC) + " " + config("T1/C2", :CFLAGS) + " -M -MM -MF"
-
-config "T1/C2", :SC			=> "g++"
-config "T1/C2", :SFLAGS		=> "-Isrc -Isrc/a -c"
-
-config "T1/C2", :LD 		=> "g++"
-config "T1/C2", :LDFLAGS 	=> ""
+config "T1/C1", :LD         => "g++"
+config "T1/C1", :LDFLAGS    => ""
 
 
-config "Tx/Cx", :CC 		=> "gcc"
-config "Tx/Cx", :CFLAGS 	=> "-Isrc -Isrc/a -DX86 -c"
-config "Tx/Cx", :CDEPS 		=> config("Tx/Cx", :CC) + " " + config("Tx/Cx", :CFLAGS) + " -M -MM -MF"
-config "Tx/Cx", :LD 		=> "gcc"
-config "Tx/Cx", :LDFLAGS 	=> " -DX86"
+config "T1/C2", :CC         => "g++"
+config "T1/C2", :CFLAGS     => "-Isrc -Isrc/a -c"
+config "T1/C2", :CDEPS      => config("T1/C2", :CC) + " " + config("T1/C2", :CFLAGS) + " -M -MM -MF"
+
+config "T1/C2", :SC         => "g++"
+config "T1/C2", :SFLAGS     => "-Isrc -Isrc/a -c"
+
+config "T1/C2", :LD         => "g++"
+config "T1/C2", :LDFLAGS    => ""
+
+
+config "Tx/Cx", :CC         => "gcc"
+config "Tx/Cx", :CFLAGS     => "-Isrc -Isrc/a -DX86 -c"
+config "Tx/Cx", :CDEPS         => config("Tx/Cx", :CC) + " " + config("Tx/Cx", :CFLAGS) + " -M -MM -MF"
+config "Tx/Cx", :LD         => "gcc"
+config "Tx/Cx", :LDFLAGS    => " -DX86"
 
 
 
-define_rules 	"T1", "C1", ".c"
-define_rules 	"T1", "C1", ".s"
+define_rules    "T1", "C1", ".c"
+define_rules    "T1", "C1", ".s"
 define_ld_rules "T1", "C1", ".o"
 
-define_rules 	"T1", "C2", ".c"
-define_rules 	"T1", "C2", ".s"
+define_rules    "T1", "C2", ".c"
+define_rules    "T1", "C2", ".s"
 define_ld_rules "T1", "C2", ".o"
 
-define_rules 	"Tx", "Cx", ".c"
-define_exec 	"Tx", "Cx", ".elf"
+define_rules    "Tx", "Cx", ".c"
+define_exec     "Tx", "Cx", ".elf"
 define_ld_rules "Tx", "Cx", ".o"
 
 
 # Override a subdir rule : NOT WORKING
 #rule '.o' => toolchain_config_subdir("T1", "C2", "a", ".c") do |target|
-#	action_msg 		"T1", "C2", target, "CSUBDIR"
-#	action_prepare 	"T1", "C2", target
-#	sh "g++ -c -o" + "#{target.name} #{target.source}"
+#    action_msg         "T1", "C2", target, "CSUBDIR"
+#    action_prepare     "T1", "C2", target
+#    sh "g++ -c -o" + "#{target.name} #{target.source}"
 #end
 
 # Override a file rule
 file 'bin/obj/T1/C2/lul.o' => ['src/lul.s'] + toolchain_dep("T1","C2").call('bin/obj/T1/C2/lul.o')   do |target|
-	action_msg 		"T1", "C2", target, "SCSPECIAL"
-	action_prepare 	"T1", "C2", target
-	sh "g++ -c -o" + "#{target.name} #{target.source}"
+    action_msg         "T1", "C2", target, "SCSPECIAL"
+    action_prepare     "T1", "C2", target
+    sh "g++ -c -o" + "#{target.name} #{target.source}"
 end
 
 # Specify which files to use in the resulting elf
